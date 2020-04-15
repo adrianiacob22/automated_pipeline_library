@@ -1,0 +1,51 @@
+version: '3.7'
+
+services:
+  master:
+    build:
+      context: ./jenkins-master/
+      dockerfile: Dockerfile
+    ports:
+      - "50000:50000"
+    volumes:
+      - jenkins-log:/var/log/jenkins
+      - jenkins-data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - jenkins-net
+
+  proxy:
+    image: ehazlett/docker-proxy:latest
+    command: -i
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      jenkins-net:
+        aliases:
+          - dockerproxy
+
+  nginx:
+    build:
+      context: ./nginx/
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - jenkins-net
+
+  slave:
+    build:
+      context: ./jenkins-slave/
+      dockerfile: Dockerfile
+volumes:
+  jenkins-data:
+    driver: local-persist
+    driver_opts:
+      mountpoint: /var/lib/jenkins
+  jenkins-log:
+    driver: local-persist
+    driver_opts:
+      mountpoint: /var/log/jenkins
+networks:
+  jenkins-net:

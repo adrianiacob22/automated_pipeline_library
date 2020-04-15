@@ -1,0 +1,40 @@
+pipeline {
+agent {
+    label 'cmscheftest2'
+}
+options {
+  disableConcurrentBuilds()
+}
+
+    stages {
+        stage('Test 3x connection') {
+            steps {
+              script {
+                      sh '''
+                      #!/usr/bin/bash
+                      gateway="cmschef1"
+                      echo "Checking if ssh tunnel is already connected to ${gateway}"
+                      ssh_pid=$(ps -ef | grep ssh | grep "${gateway}" | awk '{print $2}' || true)
+                      set +e
+                      ping -q -c5 wdc04ammchef01.imzcloud.ibmammsap.local
+                      pingtest=$?
+                      set -e
+
+                      if [[ ! -z "${ssh_pid}" ]] && [[ ${pingtest} == 0 ]]; then
+                      	echo "ssh tunnel is connected to ${gateway}"
+                        stat=connected
+                      else
+                        test ! -z "${ssh_pid}" && kill -9 "${ssh_pid}" || true
+                        stat=not_connected
+                      fi
+                      '''
+                    }
+                  }
+                }
+            stage('connect 3.x on cmscheftest2') {
+                    steps {
+                    build job: 'Operational/Connect_openvpn3X/', parameters: [[$class: 'NodeParameterValue', name: 'NODE', labels: ['cmscheftest2'], nodeEligibility: [$class: 'AllNodeEligibility']]]
+                    }
+            }
+    }
+}
