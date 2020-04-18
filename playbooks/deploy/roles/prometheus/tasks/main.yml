@@ -1,0 +1,88 @@
+---
+  - include_vars: vault.yml
+  - name: create directories
+    file:
+      path: "{{ item }}"
+      state: directory
+      owner: 65534
+      group: 65534
+    with_items:
+      - "{{ prometheus_install_dir }}"
+      - "{{ prometheus_config_dir }}"
+      - "{{ prometheus_db_dir }}"
+      - "{{ prometheus_config_dir }}/rules"
+      - "{{ alertmanager_dir }}"
+      - "{{ alertmanager_config_dir }}"
+
+  - name: Installing prometheus
+    template:
+      src: "{{ prometheus_compose_file }}"
+      dest: "{{ prometheus_install_dir }}/docker-compose.yml"
+      force: true
+      owner: root
+      group: root
+      mode: 0640
+    notify: restart prometheus
+
+  - name: Configure prometheus systemd service
+    template:
+      src: "{{ prometheus_service_file }}"
+      dest: "{{ systemd_dir }}/prometheus.service"
+      force: true
+      owner: root
+      group: root
+      mode: 0664
+    notify:
+      - restart prometheus
+
+  - name: Configure prometheus server
+    template:
+      src: "{{ prometheus_config_file }}"
+      dest: "{{ prometheus_config_dir }}/prometheus.yml"
+      force: true
+      owner: 65534
+      group: 65534
+      mode: 0640
+      #validate: "docker run prometheus /bin/promtool check config %s"
+    notify:
+      - restart prometheus
+
+  - name: Configure alertmanager server
+    template:
+      src: "{{ alertmanager_config_file }}"
+      dest: "{{ alertmanager_config_dir }}/alertmanager.yml"
+      force: true
+      owner: 65534
+      group: 65534
+      mode: 0640
+      # validate: "docker run -v '{{ alertmanager_config_dir }}/alertmanager.yml:{{ alertmanager_config_dir }}/alertmanager.yml' dnanexus/promtool:2.9.2 check config %s"
+    notify:
+      - restart prometheus
+
+  # - name: configure prometheus static targets
+  #   copy:
+  #     content: |
+  #       #jinja2: lstrip_blocks: True
+  #       {{ item.value | to_nice_yaml(indent=2) }}
+  #     dest: "{{ prometheus_config_dir }}/file_sd/{{ item.key }}.yml"
+  #     force: true
+  #     owner: 65534
+  #     group: 65534
+  #     mode: 0640
+  #   with_dict: "{{ prometheus_targets }}"
+  #   when: prometheus_targets != {}
+
+  # - name: copy prometheus custom static targets
+  #   copy:
+  #     src: "{{ item }}"
+  #     dest: "{{ prometheus_config_dir }}/file_sd/"
+  #     force: true
+  #     owner: 65534
+  #     group: 65534
+  #     mode: 0640
+  #   with_fileglob: "{{ prometheus_static_targets_files }}"
+  #   notify:
+  #     - restart prometheus
+
+  - name: Add alerting rules
+    include_tasks: alerting.yml

@@ -1,0 +1,10 @@
+---
+go_arch: amd64
+
+jenkins_host: jenkins
+prometheus_host: promethus
+# Usage
+# ansible-playbook playbooks/metrics/site.yml -t node_exporter
+# ansible-playbook playbooks/metrics/site.yml -t prometheus
+# The playbook is using the inventory file hosts.ini
+# located in the jenkins-infra-config directory

@@ -1,0 +1,16 @@
+---
+jenkins_install_dir: /opt/jenkins/
+jenkins_data_dir: "{{ jenkins_install_dir }}/data"
+jenkins_log_dir: "{{ jenkins_install_dir }}/log"
+jenkins_certs_dir: "{{ jenkins_install_dir }}/ssl"
+jenkins_uid: "1001"
+
+systemd_dir: /etc/systemd/system/
+temp_install_dir: /tmp/jenkins
+
+jenkins_user: jenkins
+# the group for sudo permissions. Might need to be added and configured in sudoers file
+sudo_group: admin
+
+# Alternative config file name, searched in ansible templates path.
+jenkins_service_file: 'jenkins.service.j2'

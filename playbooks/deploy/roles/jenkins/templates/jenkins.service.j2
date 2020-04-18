@@ -1,0 +1,13 @@
+[Unit]
+Description=Jenkins server compose
+After=docker.service
+BindsTo=docker.service
+
+[Service]
+Restart=always
+WorkingDirectory=/opt/jenkins/
+ExecStart=/usr/bin/docker-compose up
+ExecStop=/usr/bin/docker-compose down
+
+[Install]
+WantedBy=multi-user.target

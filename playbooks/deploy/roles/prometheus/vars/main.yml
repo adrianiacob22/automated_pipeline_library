@@ -1,0 +1,76 @@
+---
+prometheus_install_dir: /opt/prometheus
+prometheus_config_dir: "{{ prometheus_install_dir }}/conf/"
+prometheus_db_dir: "{{ prometheus_install_dir }}/data/"
+systemd_dir: /etc/systemd/system/
+alertmanager_dir: "{{ prometheus_install_dir }}/alertmanager"
+alertmanager_config_dir: "{{ alertmanager_dir }}/conf"
+
+
+prometheus_web_listen_address: "0.0.0.0:9090"
+prometheus_web_external_url: ''
+
+# Alternative config file name, searched in ansible templates path.
+prometheus_config_file: 'prometheus.yml.j2'
+alertmanager_config_file: 'alertmanager.yml.j2'
+prometheus_compose_file: 'docker-compose.yml.j2'
+prometheus_service_file: 'prometheus.service.j2'
+
+prometheus_storage_retention: "30d"
+prometheus_storage_retention_size: "100MB"
+
+# prometheus_config_flags_extra: {}
+prometheus_config_flags_extra:
+  storage.tsdb.retention: 21d
+#   alertmanager.timeout: 10s
+
+# prometheus_alertmanager_config: []
+prometheus_alertmanager_config:
+  - scheme: http
+    # path_prefix: /
+    # basic_auth:
+    #   username: user
+    #   password: pass
+    static_configs:
+      - targets: ["{{ ansible_fqdn }}:9093"]
+    # proxy_url: "alertmanager"
+
+prometheus_alert_relabel_configs: []
+# prometheus_alert_relabel_configs:
+#   - action: labeldrop
+#     regex: replica
+
+prometheus_global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+
+prometheus_external_labels:
+  environment: "{{ ansible_fqdn | default(ansible_host) | default(inventory_hostname) }}"
+
+#prometheus_targets:
+#  node:
+#    - targets:
+#        - localhost:9100
+#      labels:
+#        env: test
+
+prometheus_scrape_configs:
+  - job_name: "prometheus"
+    metrics_path: "{{ prometheus_metrics_path }}"
+    static_configs:
+      - targets:
+          - "{{ ansible_fqdn | default(ansible_host) | default('localhost') }}:9090"
+  - job_name: "node"
+    file_sd_configs:
+      - files:
+          - "{{ prometheus_config_dir }}/file_sd/node.yml"
+
+proxy_port: 911
+
+prometheus_alert_rules_files:
+  - prometheus/rules/*.rules
+
+prometheus_static_targets_files:
+  - prometheus/targets/*.yml
+  - prometheus/targets/*.json

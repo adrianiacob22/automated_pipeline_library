@@ -1,0 +1,14 @@
+---
+  - name: Configure alertmanager server
+    delegate_to: groups['cmsjenkins2']
+    become: yes
+    template:
+      src: proxy.j2
+      dest: /etc/xinetd.d/node_exporter_austin
+      force: true
+      owner: root
+      group: root
+      mode: 0644
+    notify:
+      - restart xinetd
+    when: ansible_host == 'cmsjenkins2'

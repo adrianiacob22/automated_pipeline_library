@@ -1,0 +1,39 @@
+{{ ansible_managed | comment }}
+
+version: "3.7"
+
+services:
+  alertmanager:
+    image: prom/alertmanager:latest
+    privileged: true
+    container_name: alertmanager
+    volumes:
+      - {{ alertmanager_dir }}:/alertmanager:rw
+      - {{ alertmanager_config_dir }}:/etc/alertmanager/:ro
+      - /etc/hosts:/etc/hosts
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://{{ ansible_fqdn }}:9093'
+      #- '--log.level=debug'
+    ports:
+      - '9093:9093'
+  prometheus:
+    image: prom/prometheus:latest
+    privileged: true
+    container_name: prometheus
+    depends_on:
+     - "alertmanager"
+    volumes:
+      - {{ prometheus_config_dir }}:/etc/prometheus
+      - {{ prometheus_db_dir }}:/prometheus
+      - /etc/hosts:/etc/hosts
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+{% for flag, flag_value in prometheus_config_flags_extra.items() %}
+      - '--{{ flag }}{% if flag_value %}={{ flag_value }}'
+{% endif %} {% endfor %}
+      #- '--log.level=debug'
+    ports:
+      - "9090:9090"

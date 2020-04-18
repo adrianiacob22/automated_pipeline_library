@@ -1,0 +1,210 @@
+---
+- name: Check systemd init system
+  assert:
+    that: ansible_service_mgr == 'systemd'
+    msg: "This role only works with systemd"
+  when: ansible_distribution == 'RedHat' and ansible_distribution_major_version == '7'
+
+- name: Get systemd version
+  command: systemctl --version
+  changed_when: false
+  check_mode: false
+  register: systemd_version
+  when: ansible_distribution == 'RedHat' and ansible_distribution_major_version == '7'
+
+- name: Set systemd version fact
+  set_fact:
+    node_exporter_systemd_version: "{{ systemd_version.stdout_lines[0] | regex_replace('^systemd\\s(\\d+).*$', '\\1') }}"
+  when: ansible_distribution == 'RedHat' and ansible_distribution_major_version == '7'
+
+- name: Check if node_exporter is installed
+  stat:
+    path: "/usr/local/bin/node_exporter"
+  register: __node_exporter_is_installed
+
+- name: Gather currently installed node_exporter version
+  command: "/usr/local/bin/node_exporter --version"
+  args:
+    warn: false
+  changed_when: false
+  register: __node_exporter_current_version_output
+  when: __node_exporter_is_installed.stat.exists
+
+- block:
+    - name: Get latest release
+      uri:
+        url: "https://api.github.com/repos/prometheus/node_exporter/releases/latest"
+        method: GET
+        return_content: true
+        status_code: 200
+        body_format: json
+        validate_certs: false
+      register: _latest_release
+      until: _latest_release.status == 200
+      retries: 5
+      ignore_errors: true
+
+    - name: "Set node_exporter version to {{ _latest_release.json.tag_name[1:] }}"
+      set_fact:
+        node_exporter_version: "{{ _latest_release.json.tag_name[1:] }}"
+      when: _latest_release.status == 200
+  when: node_exporter_version == "latest"
+  delegate_to: localhost
+  run_once: true
+
+- name: Get checksum list from github
+  set_fact:
+    _checksums: "{{ lookup('url', 'https://github.com/prometheus/node_exporter/releases/download/v' + node_exporter_version + '/sha256sums.txt', wantlist=True) | list }}"
+  run_once: true
+
+
+- name: "Get checksum for {{ go_arch }} architecture"
+  set_fact:
+    node_exporter_checksum: "{{ item.split(' ')[0] }}"
+  with_items: "{{ _checksums }}"
+  when: "('linux-' + go_arch + '.tar.gz') in item"
+
+- name: Installing node_exporter dependencies
+  package:
+    name: "{{ item }}"
+    state: present
+  register: _install_dep_packages
+  until: _install_dep_packages is success
+  retries: 5
+  delay: 2
+  when: ansible_distribution == 'RedHat' and ansible_distribution_major_version == '7'
+  with_items: "{{ node_exporter_dependencies }}"
+
+- name: Create the node_exporter group
+  become: true
+  group:
+    name: "{{ node_exporter_system_group }}"
+    state: present
+    system: true
+  when: node_exporter_system_group != "root"
+
+- name: Create the node_exporter user
+  become: true
+  user:
+    name: "{{ node_exporter_system_user }}"
+    groups: "{{ node_exporter_system_group }}"
+    append: true
+    shell: /usr/sbin/nologin
+    system: true
+    createhome: false
+    home: /
+  when: node_exporter_system_user != "root"
+
+- name: Download node_exporter binary to local folder
+  become: false
+  get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-{{ go_arch }}.tar.gz"
+    dest: "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ go_arch }}.tar.gz"
+    checksum: "sha256:{{ node_exporter_checksum }}"
+  register: _download_binary
+  until: _download_binary is succeeded
+  retries: 5
+  delay: 2
+  delegate_to: localhost
+  check_mode: false
+
+- name: Unpack node_exporter binary
+  become: false
+  unarchive:
+    src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ go_arch }}.tar.gz"
+    dest: "/tmp"
+    creates: "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ go_arch }}/node_exporter"
+  delegate_to: localhost
+  check_mode: false
+
+- name: Create /usr/local/bin
+  file:
+    path: /usr/local/bin
+    state: directory
+    mode: 0755
+
+- name: Propagate node_exporter binaries
+  become: true
+  copy:
+    src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ go_arch }}/node_exporter"
+    dest: "/usr/local/bin/node_exporter"
+    mode: 0755
+    owner: root
+    group: root
+  notify: restart node_exporter
+  when: not ansible_check_mode
+
+- name: Copy node_exporter systemd service file
+  become: true
+  template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart node_exporter
+  when: node_exporter_systemd_version is defined
+
+- name: Copy node_exporter service file
+  become: true
+  template:
+    src: node_exporter.j2
+    dest: /etc/rc.d/init.d/node_exporter
+    owner: root
+    group: root
+    mode: 0755
+    force: yes
+  notify: restart node_exporter_6
+  when: ansible_distribution == 'RedHat' and ansible_distribution_major_version == '6'
+
+- name: Create textfile collector dir
+  become: true
+  file:
+    path: "{{ node_exporter_textfile_dir }}"
+    state: directory
+    owner: "{{ node_exporter_system_user }}"
+    group: "{{ node_exporter_system_group }}"
+    recurse: true
+    mode: 0775
+  when: node_exporter_textfile_dir | length > 0
+
+- name: Add proxies for Austin vms
+  include_tasks: setup_proxies.yml
+  
+# - name: Allow node_exporter port in SELinux
+#   seport:
+#     ports: "{{ node_exporter_web_listen_address.split(':')[-1] }}"
+#     proto: tcp
+#     setype: http_port_t
+#     state: present
+#   when:
+#     - ansible_version.full is version_compare('2.4', '>=')
+#     - ansible_selinux.status == "enabled"
+
+- name: Gather service facts
+  service:
+    name: firewalld
+  register: firewall_stat
+  when: ansible_distribution == 'RedHat' and ansible_distribution_major_version == '7'
+
+- debug:
+    var: firewall_stat.status.SubState
+
+- name: Allow node_exporter port in firewalld
+  become: true
+  firewalld:
+    port: "{{ node_exporter_web_listen_address.split(':')[-1] }}/tcp"
+    permanent: yes
+    state: enabled
+  when:
+    - ansible_distribution_major_version == '7'
+    - firewall_stat.status.SubState is defined and firewall_stat.status.SubState is match("running*")
+    #- ansible_facts['services']['firewalld.service'] is defined
+  notify: restart firewalld
+
+- name: Make sure node_exporter is started
+  become: true
+  service:
+    name: node_exporter
+    state: started
+    enabled: yes

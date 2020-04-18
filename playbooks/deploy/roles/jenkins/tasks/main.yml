@@ -1,0 +1,53 @@
+---
+  - name: Create installation directories
+    file:
+      path:  "{{ item }}"
+      state: directory
+      owner: "{{ jenkins_uid }}"
+      group: "{{ jenkins_uid }}"
+    with_items:
+      - "{{ jenkins_install_dir }}"
+      - "{{ jenkins_data_dir }}"
+      - "{{ jenkins_log_dir }}"
+      - "{{ jenkins_certs_dir }}"
+
+  - name: Make sure curl is installed
+    apt:
+      name: curl
+      state: present
+
+  - name: Install local-persist driver for docker
+    shell: curl -fsSL https://raw.githubusercontent.com/MatchbookLab/local-persist/master/scripts/install.sh | sudo bash
+    args:
+      warn: no
+
+  - name: Installing jenkins
+    copy:
+      src: "{{ lookup('env', 'PWD') }}/jenkins/"
+      dest: "{{ jenkins_install_dir }}"
+      force: true
+      owner: "{{ jenkins_uid }}"
+      group: "{{ jenkins_uid }}"
+      mode: 0640
+    notify: restart jenkins
+
+  - name: Run initial target
+    make:
+      chdir: "{{ jenkins_install_dir }}"
+      target: initial
+
+  - name: Build containers
+    make:
+      chdir: "{{ jenkins_install_dir }}"
+      target: build
+
+  - name: Configure jenkins systemd service
+    template:
+      src: "{{ jenkins_service_file }}"
+      dest: "{{ systemd_dir }}/jenkins.service"
+      force: true
+      owner: root
+      group: root
+      mode: 0664
+    notify:
+      - restart jenkins

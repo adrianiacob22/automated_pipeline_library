@@ -1,0 +1,13 @@
+  route:
+    receiver: slack_general
+    routes:
+      # Send severity=slack alerts to slack
+      - match:
+          severity: critical, warning
+        receiver: slack_general
+
+  receivers:
+    - name: slack_general
+      slack_configs:
+      - api_url: "{{ slack_api_url }}"
+        channel: '#vlaunch_alerts'

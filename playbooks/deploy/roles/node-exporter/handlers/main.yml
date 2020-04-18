@@ -1,0 +1,29 @@
+---
+- name: restart node_exporter
+  become: true
+  systemd:
+    daemon_reload: yes
+    name: node_exporter
+    state: restarted
+    enabled: yes
+
+- name: restart firewalld
+  become: true
+  systemd:
+    daemon_reload: yes
+    name: firewalld
+    state: restarted
+
+- name: restart node_exporter_6
+  become: true
+  service:
+    name: node_exporter
+    state: restarted
+    enabled: yes
+
+- name: restart xinetd
+  become: true
+  service:
+    name: xinetd
+    state: restarted
+    enabled: yes

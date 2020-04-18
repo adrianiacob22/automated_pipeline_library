@@ -1,0 +1,60 @@
+#!/bin/bash
+#
+{{ ansible_managed | comment }}
+# chkconfig: 2345 85 55
+
+. /etc/rc.d/init.d/functions
+
+PROGNAME=node_exporter
+PROG=/usr/local/bin/$PROGNAME
+USER=root
+LOGFILE=/var/log/node_exporter.log
+LOCKFILE=/var/run/$PROGNAME.pid
+WEBADDR="0.0.0.0:9105"
+
+start() {
+    echo -n "Starting $PROGNAME: "
+    cd /usr/local/bin/
+    daemon --user $USER --pidfile="$LOCKFILE" "$PROG --web.listen-address=$WEBADDR \
+    --collector.systemd \
+    --collector.textfile \
+    --collector.textfile.directory=/var/lib/node_exporter \
+    --collector.filesystem \
+    --collector.filesystem.ignored-fs-types=\"^(sys|proc|auto)fs$\" \
+    --collector.filesystem.ignored-mount-points=\"^/(sys|proc|dev)($|/)\" \
+    &>$LOGFILE &"
+    echo $(pidofproc $PROGNAME) >$LOCKFILE
+    echo
+}
+
+stop() {
+    echo -n "Shutting down $PROGNAME: "
+    killproc $PROGNAME
+    rm -f $LOCKFILE
+    echo
+}
+
+
+case "$1" in
+    start)
+    start
+    ;;
+    stop)
+    stop
+    ;;
+    status)
+    status $PROGNAME
+    ;;
+    restart)
+    stop
+    start
+    ;;
+    reload)
+    echo "Sending SIGHUP to $PROGNAME"
+    kill -SIGHUP $(pidofproc $PROGNAME)#!/bin/bash
+    ;;
+    *)
+        echo "Usage: service prometheus {start|stop|status|reload|restart}"
+        exit 1
+    ;;
+esac

@@ -1,0 +1,16 @@
+---
+- hosts: nodes
+  gather_facts: yes
+  roles:
+    - { role: node-exporter, tags: node_exporter }
+
+- hosts: prometheus
+  become: yes
+  roles:
+    - { role: prometheus, tags: prometheus }
+
+- hosts: jenkins
+  become: yes
+  become_method: sudo
+  roles:
+    - { role: jenkins, tags: jenkins }

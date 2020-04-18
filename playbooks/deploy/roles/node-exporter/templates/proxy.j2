@@ -1,0 +1,51 @@
+service node_exporter_cmsbuildvm01
+{
+        type = UNLISTED
+        flags = NOLIBWRAP
+        socket_type = stream
+        protocol = tcp
+        wait = no
+        user = root
+        port = 9111
+        redirect = cmsbuildvm01 9105
+        disable = no
+}
+
+service node_exporter_ausbuildvm02
+{
+        type = UNLISTED
+        flags = NOLIBWRAP
+        socket_type = stream
+        protocol = tcp
+        wait = no
+        user = root
+        port = 9112
+        redirect = ausbuildvm02 9105
+        disable = no
+}
+
+service node_exporter_maven3
+{
+        type = UNLISTED
+        flags = NOLIBWRAP
+        socket_type = stream
+        protocol = tcp
+        wait = no
+        user = root
+        port = 9113
+        redirect = maven3 9105
+        disable = no
+}
+
+service node_exporter_ausbuildvm05
+{
+        type = UNLISTED
+        flags = NOLIBWRAP
+        socket_type = stream
+        protocol = tcp
+        wait = no
+        user = root
+        port = 9114
+        redirect = ausbuildvm05 9105
+        disable = no
+}

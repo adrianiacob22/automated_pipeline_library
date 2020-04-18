@@ -31,6 +31,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    volumes:
+      - jenkins-ssl:/etc/nginx/ssl
     networks:
       - jenkins-net
 
@@ -42,10 +44,14 @@ volumes:
   jenkins-data:
     driver: local-persist
     driver_opts:
-      mountpoint: /var/lib/jenkins
+      mountpoint: /opt/jenkins/data
   jenkins-log:
     driver: local-persist
     driver_opts:
-      mountpoint: /var/log/jenkins
+      mountpoint: /opt/jenkins/log
+  jenkins-ssl:
+    driver: local-persist
+    driver_opts:
+      mountpoint: /opt/jenkins/ssl
 networks:
   jenkins-net:

@@ -1,0 +1,7 @@
+---
+- name: restart jenkins
+  become: true
+  systemd:
+    daemon_reload: true
+    name: jenkins
+    state: restarted
