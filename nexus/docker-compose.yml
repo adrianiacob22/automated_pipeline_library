@@ -1,0 +1,15 @@
+version: '3.7'
+
+services:
+  nexus:
+      image: sonatype/nexus3:latest
+      ports:
+          - "8081:8081"
+          - "8123:8123"
+      volumes:
+          - nexus-data:/nexus-data
+volumes:
+  nexus-data:
+    driver: local-persist
+    driver_opts:
+      mountpoint: /opt/nexus/data

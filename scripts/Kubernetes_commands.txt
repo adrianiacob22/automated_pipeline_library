@@ -1,0 +1,256 @@
+##Prereqs
+
+setenforce 0
+sed -i --follow-symlinks 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/sysconfig/selinux
+
+modprobe br_netfilter
+echo '1' > /proc/sys/net/bridge/bridge-nf-call-iptables
+
+swapoff -a
+
+edit /etc/fstab to comment swap volme mount
+
+##Install docker-ce
+
+wget -c https://download.docker.com/linux/centos/7/x86_64/stable/Packages/docker-ce-17.03.2.ce-1.el7.centos.x86_64.rpm
+wget -c https://download.docker.com/linux/centos/7/x86_64/stable/Packages/docker-ce-selinux-17.03.2.ce-1.el7.centos.noarch.rpm
+
+
+
+yum install -y yum-utils device-mapper-persistent-data lvm2
+
+##List PODs
+kubectl get pods
+
+##ssh into the container in a POD
+kubectl exec $POD_NAME bash
+
+##run a command in the container in a POD - example to get env vars
+kubectl exec $POD_NAME env
+
+## start a proxy 
+kubectl proxy
+
+##get pod name using a template
+kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}'
+##store it in a variable
+export POD_NAME=$(kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+
+##get logs for a POD
+kubectl logs $POD_NAME
+
+
+###cleanup kubernetes
+kubeadm reset
+systemctl stop kubelet
+systemctl stop docker
+rm -rf /etc/kubernetes/
+rm -rf /var/lib/cni/
+rm -rf /var/lib/kubelet/*
+rm -rf /run/flannel
+rm -rf /etc/cni/
+ifconfig cni0 down
+brctl delbr cni0
+ifconfig flannel.1 down
+ip link delete cni0
+ip link delete flannel.1
+systemctl start docker
+
+## When metrics server cannot find kubernetes- add in spec area
+
+        command:
+        - /metrics-server
+        - --source=kubernetes.summary_api:''
+
+## Heapseter source for insecure api connection and elasticsearch sink
+    spec:
+      containers:
+      - command:
+        - /heapster
+        - --source=kubernetes:https://kubernetes.default?kubeletPort=10250&kubeletHttps=true&insecure=true
+        - --sink=elasticsearch:http://cmsvirt2:9200?sniff=false
+
+
+
+##
+
+kubectl create rolebinding -n kube-system amdin-role --role=extension-apiserver-authentication-reader --serviceaccount=YOUR_NS:YOUR_SA
+
+##Execute the following command with your pod name to access Prometheus from localhost port 8080.
+kubectl port-forward prometheus-monitoring-3331088907-hm5n1 8080:9090 -n monitoring
+
+
+##1. Create a file named prometheus-service.yaml and copy the following contents. We will expose Prometheus on all kubernetes node IP’s on port 30000.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+spec:
+  selector: 
+    app: prometheus-server
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 9090 
+      nodePort: 30000
+
+###Create a volume to be mounted on two or more containers - nonpersistent
+### volume test is mounted on each container in the pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: morevol
+spec:
+  containers:
+  - name: centos
+    image: centos:7
+    command:
+     - sleep
+     - "3600"
+    volumeMounts:
+      - mountPath: /centos
+        name: test
+    name: centos
+  - name: centos
+    image: centos:7
+    command:
+     - sleep
+     - "3600"
+    volumeMounts:
+      - mountPath: /centos2
+        name: test
+    name: centos2
+  volumes:
+    - name: test
+      emptyDir: {}
+
+## In case of persistent volume, it is created separated by pod, because it is independent
+## Also make sure to have the mount point (hostPath) available on all the hosts in the K8S cluster
+-------------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-volume
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 2Gi
+  accessModes:
+   - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+
+
+## persistent volume claim
+
+[root@kube1 kubernetes]# cat pvclaim.yaml
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: pv-claim
+spec:
+  storageClassName: manual
+  accessModes:
+   - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+### Then claim it inside a container
+
+[root@kube1 kubernetes]# cat pv-pod.yaml
+kind: Pod
+apiVersion: v1
+metadata:
+  name: pv-pod
+spec:
+  volumes:
+   - name: pv-storage
+     persistentVolumeClaim:
+       claimName: pv-claim
+  containers:
+   - name: pv-container
+     image: nginx
+     ports:
+      - containerPort: 80
+        name: "http-server"
+     volumeMounts:
+      - mountPath: "/usr/share/nginx/html"
+        name: pv-storage
+-----------------------------------------------------------------------------
+####Storage actions, persistent volumes from nfs
+[root@kube1 kubernetes]# cat nfs-pv.yaml 
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+   - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /data
+    server: 9.37.192.153
+    readOnly: false
+
+[root@kube1 kubernetes]# cat nfs-pvc.yaml 
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nfs-pv-claim
+spec:
+  accessModes:
+   - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+
+[root@kube1 kubernetes]# cat nfs-pv-pod.yaml
+kind: Pod
+apiVersion: v1
+metadata:
+  name: nfs-pv-pod
+spec:
+  volumes:
+   - name: nfs-pv
+     persistentVolumeClaim:
+       claimName: nfs-pv-claim
+  containers:
+   - name: nfs-client1
+     image: nginx
+     ports:
+      - containerPort: 8081
+        name: "http-server1"
+     volumeMounts:
+      - mountPath: "/nfsshare"
+        name: nfs-pv
+   - name: nfs-client2
+     image: nginx
+     ports:
+      - containerPort: 8082
+        name: "http-server2"
+     volumeMounts:
+      - mountPath: "/nfsshare"
+        name: nfs-pv
+
+kubectl create secret docker-registry regcred --docker-server=hyc-cmscloud-docker-local/docker_demo/ --docker-username=adrian.iacob@ro.ibm.com --docker-password=Bosfor22 --docker-email=adrian.iacob@ro.ibm.com
+
+
+##change image used in a deployment
+kubectl set image deployment/hello-world hello-world=us.icr.io/adrian_ns/hello-world:2
+
+
+##Create gluster volumes
+gluster volume create es-data-efk-cluster replica 2 icp-worker1:/export/logging/es-data-efk-cluster icp-worker2:/export/logging/es-data-efk-cluster force
+gluster volume create es-master-efk-cluster replica 2 icp-worker1:/export/logging/es-master-efk-cluster icp-worker2:/export/logging/es-master-efk-cluster force
+gluster volume start es-data-efk-cluster
+gluster volume start es-master-efk-cluster
+
+
+
+
