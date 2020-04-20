@@ -16,9 +16,6 @@ pipeline {
        defaultContainer 'shell'
    }
    }
-   environment {
-         GOCACHE = "/tmp"
-   }
    stages {
        stage('Build') {
 
