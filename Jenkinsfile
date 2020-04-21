@@ -1,6 +1,6 @@
 pipeline {
    agent {
-   kubernetes_local_cloud {
+   kubernetes {
        // Rather than inline YAML, in a multibranch Pipeline you could use: yamlFile 'jenkins-pod.yaml'
        // Or, to avoid YAML:
       yamlFile 'kubernetes/podtemplate.yml'
