@@ -1,6 +1,7 @@
 metadata:
   labels:
     app: build
+    name: docker-repo
 spec:
   containers:
    - name: jnlp
@@ -8,7 +9,7 @@ spec:
      env:
      - name: CONTAINER_ENV_VAR
        value: jnlp
-     args: -disableHttpsCertValidation
+     args: ["-disableHttpsCertValidation"]
    - name: maven
      image: maven:3.3.9-jdk-8-alpine
      command:
