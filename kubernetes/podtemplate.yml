@@ -24,7 +24,7 @@ spec:
      - cat
      tty: true
      env:
-    - name: CONTAINER_ENV_VAR
-      value: busybox
+     - name: CONTAINER_ENV_VAR
+       value: busybox
   imagePullSecrets:
   - name: docker-repo
