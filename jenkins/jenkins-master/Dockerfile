@@ -1,5 +1,5 @@
 FROM jenkins/jenkins:lts-jdk11
-LABEL maintainer="adrian.iacob@ro.ibm.com"
+LABEL maintainer="adrianiacob22@gmail.com"
 ENV refpath /usr/share/jenkins/ref/
 ENV groovypath /usr/share/jenkins/ref/init.groovy.d/
 ENV pluginpath /usr/share/jenkins/ref/plugins/

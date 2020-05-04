@@ -28,7 +28,7 @@ kubectl exec $POD_NAME bash
 ##run a command in the container in a POD - example to get env vars
 kubectl exec $POD_NAME env
 
-## start a proxy 
+## start a proxy
 kubectl proxy
 
 ##get pod name using a template
@@ -87,12 +87,12 @@ kind: Service
 metadata:
   name: prometheus-service
 spec:
-  selector: 
+  selector:
     app: prometheus-server
   type: NodePort
   ports:
     - port: 8080
-      targetPort: 9090 
+      targetPort: 9090
       nodePort: 30000
 
 ###Create a volume to be mounted on two or more containers - nonpersistent
@@ -182,7 +182,7 @@ spec:
         name: pv-storage
 -----------------------------------------------------------------------------
 ####Storage actions, persistent volumes from nfs
-[root@kube1 kubernetes]# cat nfs-pv.yaml 
+[root@kube1 kubernetes]# cat nfs-pv.yaml
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -198,7 +198,7 @@ spec:
     server: 9.37.192.153
     readOnly: false
 
-[root@kube1 kubernetes]# cat nfs-pvc.yaml 
+[root@kube1 kubernetes]# cat nfs-pvc.yaml
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
@@ -238,7 +238,7 @@ spec:
       - mountPath: "/nfsshare"
         name: nfs-pv
 
-kubectl create secret docker-registry regcred --docker-server=hyc-cmscloud-docker-local/docker_demo/ --docker-username=adrian.iacob@ro.ibm.com --docker-password=Bosfor22 --docker-email=adrian.iacob@ro.ibm.com
+kubectl create secret docker-registry regcred --docker-server=hyc-cmscloud-docker-local/docker_demo/ --docker-username=adrianiacob22@gmail.com --docker-password=Bosfor22 --docker-email=adrian.iacob@ro.ibm.com
 
 
 ##change image used in a deployment
@@ -250,7 +250,3 @@ gluster volume create es-data-efk-cluster replica 2 icp-worker1:/export/logging/
 gluster volume create es-master-efk-cluster replica 2 icp-worker1:/export/logging/es-master-efk-cluster icp-worker2:/export/logging/es-master-efk-cluster force
 gluster volume start es-data-efk-cluster
 gluster volume start es-master-efk-cluster
-
-
-
-
