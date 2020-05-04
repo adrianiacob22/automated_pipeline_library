@@ -24,6 +24,28 @@ sudo snap install helm --classic
 # a nice example to deploy k8s using ansible and vagrant
 # https://kubernetes.io/blog/2019/03/15/kubernetes-setup-using-ansible-and-vagrant/
 
+cat <<EOF | kubectl create -f -
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins-admin
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: jenkins-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: jenkins-admin
+    namespace: kube-system
+EOF
+SA_NAME='jenkins-admin'
+kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep ${SA_NAME} | awk '{print $1}')
 kubectl -n kube-system get secret jenkins-token-q62zg --template={{.data.token}} | base64 -d
 
 ## Installing glusterfs
